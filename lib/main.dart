@@ -1,42 +1,50 @@
 import 'package:flutter/material.dart';
+import 'task_repository.dart';
 
 void main() {
   runApp(const MyApp());
 }
 
-class Task {
-  final String title;
-  final String deadline;
-  final bool done;
-  final int priority;
-
-  Task({required this.title, required this.deadline, required this.done, required this.priority});
-}
-
-List<Task> items = [
-  Task(title: "z1", deadline: "tak", done: true, priority: 4),
-  Task(title: "z2", deadline: "5.1.1600", done: true, priority: 1),
-  Task(title: "z3", deadline: "tak", done: false, priority: 2),
-  Task(title: "bajo jajo", deadline: "bajo jajo", done: false, priority: 3),
+List<IconData> prio = [
+  Icons.arrow_circle_down,
+  Icons.boy,
+  Icons.call_made,
+  Icons.medication,
 ];
-
-List<IconData> prio = [Icons.arrow_circle_down, Icons.boy, Icons.call_made, Icons.medication];
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+    return MaterialApp(home: HomeScreen());
+  }
+}
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  @override
+  Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(colorScheme: .fromSeed(seedColor: Colors.white)),
-      home: Column(
-        children: [
-          Text("Masz dziś ${items.length} zadania"),
-          SizedBox(height: 16),
-          Text("Dzisiejsze zadania"),
-          Expanded(
-            child: Center(
+      title: 'Krakflow',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.white),
+      ),
+
+      home: Scaffold(
+        appBar: AppBar(title: Text("Krakflow")),
+        body: Column(
+          children: [
+            Text("Masz dziś ${items.length} zadania"),
+            SizedBox(height: 16),
+            Text("Dzisiejsze zadania"),
+            Expanded(
               child: ListView.builder(
                 itemCount: items.length,
                 itemBuilder: (context, index) {
@@ -46,13 +54,43 @@ class MyApp extends StatelessWidget {
                     icon: items[index].done
                         ? Icons.check_circle
                         : Icons.radio_button_unchecked,
-                    picon: prio[items[index].priority],
+                    picon: prio[items[index].priority - 1],
                   );
                 },
               ),
             ),
-          ),
-        ],
+          ],
+        ),
+        floatingActionButton: FloatingActionButton(
+            onPressed: () async {
+              Navigator.push(
+                context,
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) => AddTaskScreen(),
+                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: child,
+                    );
+                  },
+                ),
+              );
+
+              final Task? newTask = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AddTaskScreen(),
+                ),
+              );
+              if (newTask != null) {
+                setState(() {
+                  items.add(newTask);
+                });
+              }
+
+            },
+          child: Icon(Icons.add),
+        ),
       ),
     );
   }
@@ -80,6 +118,50 @@ class TaskCard extends StatelessWidget {
         title: Text(title),
         subtitle: Text(subtitle),
         trailing: Icon(picon),
+      ),
+    );
+  }
+}
+
+
+class AddTaskScreen extends StatelessWidget {
+  AddTaskScreen({super.key});
+  final TextEditingController titleController = TextEditingController();
+  final TextEditingController deadlineController = TextEditingController();
+// controller dla priorytetu
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Nowe zadanie"),
+      ),
+      body: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: titleController,
+              decoration: InputDecoration(
+                labelText: "Tytuł zadania",
+                border: OutlineInputBorder(),
+              ),
+            ),
+                  // ... dalszy kod ...
+            ElevatedButton(
+              onPressed: () {
+                final newTask = Task(
+                  title: titleController.text,
+                  deadline: deadlineController.text,
+                  done: false,
+                  priority: 1
+                );
+                Navigator.pop(context, newTask);
+              },
+              child: Text("Zapisz"),
+            ),
+          ],
+        ),
       ),
     );
   }
