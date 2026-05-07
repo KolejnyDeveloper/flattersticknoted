@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'task_repository.dart';
+import 'services/task_api_service.dart';
 
 void main() {
   runApp(const MyApp());
@@ -186,6 +187,7 @@ class _HomeScreenState extends State<HomeScreen> {
             SizedBox(height: 16),
             Text("Dzisiejsze zadania"),
             Expanded(
+              //child: TaskListScreen(),
               child: ListView.builder(
                 itemCount: filteredTasks.length,
                 itemBuilder: (context, index) {
@@ -468,3 +470,96 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
   }
 }
 
+class TaskListScreen extends StatefulWidget {
+  const TaskListScreen({super.key});
+  @override
+  State<TaskListScreen> createState() => _TaskListScreenState();
+}
+class _TaskListScreenState extends State<TaskListScreen> {
+  late Future<List<Task>> tasksFuture;
+  @override
+  void initState() {
+    super.initState();
+    tasksFuture = TaskApiService.fetchTasks();
+  }
+  String selectedFilter = "wszystkie";
+  @override
+  Widget build(BuildContext context) {
+    List<Task> filteredTasks = items;
+
+    if (selectedFilter == "wykonane") {
+      filteredTasks = items
+          .where((task) => task.done)
+          .toList();
+
+    } else if (selectedFilter == "do zrobienia") {
+      filteredTasks = items
+          .where((task) => !task.done)
+          .toList();
+    }
+
+    return FutureBuilder<List<Task>>(
+      future: tasksFuture,
+      builder: (context, snapshot) {
+        final tasks = snapshot.data ?? [];
+        List<Task> filteredTasks = snapshot.data ?? [];
+        return ListView.builder(
+          itemCount: tasks.length,
+          itemBuilder: (context, index) {
+            final task = filteredTasks[index];
+
+            return Dismissible(
+              key: Key(task.title + index.toString()),
+              direction: DismissDirection.endToStart,
+
+              background: Container(
+                alignment: Alignment.centerRight,
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                color: Colors.red,
+                child: Icon(Icons.delete, color: Colors.white),
+              ),
+
+              onDismissed: (direction) {
+                setState(() {
+                  items.removeAt(index);
+                });
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Usunieto zadanie: ${task.title}'),
+                  ),
+                );
+              },
+
+              child: TaskCard(
+                task: task,
+
+                onChanged: (value) {
+                  setState(() {
+                    task.done = value ?? false;
+                  });
+                },
+
+                onTap: () async {
+                  final editedTask = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          EditTaskScreen(task: task),
+                    ),
+                  );
+
+                  if (editedTask != null) {
+                    setState(() {
+                      items[index] = editedTask;
+                    });
+                  }
+                },
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
