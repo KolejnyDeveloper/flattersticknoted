@@ -1,8 +1,18 @@
 import 'package:flutter/material.dart';
 import 'task_repository.dart';
 import 'services/task_api_service.dart';
+import 'services/task_local_database.dart';
+import 'services/task_sync_service.dart';
+import 'package:hive_ce_flutter/hive_flutter.dart';
+import 'dart:math';
 
-void main() {
+void main() async {
+
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Hive.initFlutter();
+  await Hive.openBox("tasks");
+
   runApp(const MyApp());
 }
 
@@ -34,16 +44,24 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  late Future<List<Task>> tasksFuture;
   String selectedFilter = "wszystkie";
-  bool isLoading = true;
+  bool isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    loadTasks();
+    tasksFuture = loadTasks();
+    //loadTasks();
   }
 
-  Future<void> loadTasks() async {
+
+  Future<List<Task>> loadTasks() async {
+    await TaskSyncService.loadInitialDataIfNeeded();
+    return TaskLocalDatabase.getTasks();
+  }
+
+  /*Future<void> loadTasks() async {
     try {
       final tasks = await TaskApiService.fetchTasks();
 
@@ -60,7 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text("Błąd pobierania danych z API")));
     }
-  }
+  }*/
 
   @override
   Widget build(BuildContext context) {
@@ -369,6 +387,7 @@ class AddTaskScreen extends StatelessWidget {
             ElevatedButton(
               onPressed: () {
                 final newTask = Task(
+                  id: Random().nextInt(1000000),
                   title: titleController.text,
                   deadline: deadlineController.text,
                   done: false,
@@ -439,6 +458,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
             ElevatedButton(
               onPressed: () {
                 final editedTask = Task(
+                  id: Random().nextInt(1000000),
                   title: titleController.text,
                   deadline: deadlineController.text,
                   done: widget.task.done,
