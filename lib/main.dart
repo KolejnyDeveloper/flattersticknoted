@@ -44,21 +44,26 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  late Future<List<Task>> tasksFuture;
+  List<Task> tasks = [];
+
   String selectedFilter = "wszystkie";
-  bool isLoading = false;
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    tasksFuture = loadTasks();
-    //loadTasks();
+    //tasksFuture = loadTasks();
+    loadTasks();
   }
 
 
-  Future<List<Task>> loadTasks() async {
+  Future<void> loadTasks() async {
     await TaskSyncService.loadInitialDataIfNeeded();
-    return TaskLocalDatabase.getTasks();
+
+    setState(() {
+      tasks = TaskLocalDatabase.getTasks();
+      isLoading = false;
+    });
   }
 
   /*Future<void> loadTasks() async {
@@ -82,12 +87,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    List<Task> filteredTasks = items;
+    List<Task> filteredTasks = tasks;
 
     if (selectedFilter == "wykonane") {
-      filteredTasks = items.where((task) => task.done).toList();
+      filteredTasks = tasks.where((task) => task.done).toList();
     } else if (selectedFilter == "do zrobienia") {
-      filteredTasks = items.where((task) => !task.done).toList();
+      filteredTasks = tasks.where((task) => !task.done).toList();
     }
 
     return Scaffold(
@@ -98,9 +103,9 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             icon: Icon(Icons.delete),
 
-            color: items.isEmpty ? Colors.grey : Colors.red,
+            color: tasks.isEmpty ? Colors.grey : Colors.red,
 
-            onPressed: items.isEmpty
+            onPressed: tasks.isEmpty
                 ? () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text("Co masz usuwać jak nic nie ma?")),
@@ -124,9 +129,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
 
                             ElevatedButton(
-                              onPressed: () {
+                              onPressed: () async {
+                                await TaskLocalDatabase.deleteAllTasks();
+
                                 setState(() {
-                                  items.clear();
+                                  tasks.clear();
                                 });
 
                                 Navigator.pop(context);
@@ -153,7 +160,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 SizedBox(height: 12),
 
                 Text(
-                  "Masz dziś ${items.length} zadań",
+                  "Masz dziś ${tasks.length} zadań",
                   style: TextStyle(fontSize: 18),
                 ),
 
@@ -233,14 +240,16 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Icon(Icons.delete, color: Colors.white),
                         ),
 
-                        onDismissed: (direction) {
+                        onDismissed: (direction) async {
+                          await TaskLocalDatabase.deleteTask(task.id);
+
                           setState(() {
-                            items.remove(task);
+                            tasks.remove(task);
                           });
 
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('Usunieto zadanie: ${task.title}'),
+                              content: Text('Usunięto zadanie: ${task.title}'),
                             ),
                           );
                         },
@@ -248,10 +257,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: TaskCard(
                           task: task,
 
-                          onChanged: (value) {
-                            setState(() {
-                              task.done = value ?? false;
-                            });
+                          onChanged: (value) async {
+                            task.done = value ?? false;
+
+                            await TaskLocalDatabase.updateTask(task);
+
+                            setState(() {});
                           },
 
                           onTap: () async {
@@ -264,11 +275,13 @@ class _HomeScreenState extends State<HomeScreen> {
                             );
 
                             if (editedTask != null) {
+                              await TaskLocalDatabase.updateTask(editedTask);
+
                               setState(() {
-                                final originalIndex = items.indexOf(task);
+                                final originalIndex = tasks.indexOf(task);
 
                                 if (originalIndex != -1) {
-                                  items[originalIndex] = editedTask;
+                                  tasks[originalIndex] = editedTask;
                                 }
                               });
                             }
@@ -287,8 +300,10 @@ class _HomeScreenState extends State<HomeScreen> {
             MaterialPageRoute(builder: (context) => AddTaskScreen()),
           );
           if (newTask != null) {
+            await TaskLocalDatabase.addTask(newTask);
+
             setState(() {
-              items.add(newTask);
+              tasks.add(newTask);
             });
           }
         },
@@ -458,7 +473,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
             ElevatedButton(
               onPressed: () {
                 final editedTask = Task(
-                  id: Random().nextInt(1000000),
+                  id: widget.task.id,
                   title: titleController.text,
                   deadline: deadlineController.text,
                   done: widget.task.done,
